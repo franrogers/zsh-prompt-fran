@@ -1,0 +1,50 @@
+# vim: ft=zsh
+
+autoload -Uz add-zsh-hook
+autoload -Uz add-zle-hook-widget
+autoload -Uz vcs_info
+
+set -A prompt_opts percent subst
+
+typeset -gA _ls_colors
+function _prompt_precmd {
+	if [[ -z $ZLS_COLORS ]] {
+		zstyle -a ':completion::default' list-colors ZLS_COLORS
+	}
+
+	for pair ("$ZLS_COLORS[@]") {
+		_ls_colors[${pair%\=*}]="%{\e[0;${pair#*\=}m%}"
+	}
+
+	if [[ -z $_ls_colors[no] ]] {
+		_ls_colors[no]="%{\e[0m%}"
+	}
+}
+add-zsh-hook precmd _prompt_precmd
+
+PS1='${(g::)_ls_colors[no]}['
+
+PS1+='$(if [[ $UID == 0 || -n $SUDO_UID ]]; then '
+PS1+='echo -n "%(!.${_ls_colors[su]}.${_ls_colors[tw]})%n${_ls_colors[no]}"; '
+PS1+='if [[ -n $SSH_CONNECTION ]]; then echo "@"; else echo " "; fi; '
+PS1+='fi)'
+
+PS1+='$(if [[ -n $SSH_CONNECTION ]]; then '
+PS1+='echo "${_ls_colors[ln]}%m "; fi)'
+
+PS1+='${(g::)_ls_colors[di]}%~${(g::)_ls_colors[no]}'
+
+add-zsh-hook precmd vcs_info
+zstyle ':vcs_info:*' actionformats '%F{green}%c%u%b%f<%F{red}%a%f>'
+zstyle ':vcs_info:*' formats '%F{green}%c%u%b%f'
+zstyle ':vcs_info:(git|hg|bzr):*' check-for-changes true
+zstyle ':vcs_info:*' stagedstr '%F{yellow}'
+zstyle ':vcs_info:*' unstagedstr '%F{red}'
+zstyle ':vcs_info:(sv[nk]|bzr):*' branchformat '%b:%r'
+PS1+='$(if [[ -n $vcs_info_msg_0_ ]]; then echo "|${vcs_info_msg_0_}"; fi)'
+
+PS1+='${(g::)_ls_colors[no]}]%(?..[%B%F{red}%?%f%b${(g::)_ls_colors[no]}])'
+
+PS1+='$(if [[ $KEYMAP == vicmd ]]; then echo ":"; else echo "%#"; fi) '
+add-zle-hook-widget line-init reset-prompt
+add-zle-hook-widget keymap-select reset-prompt
